@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>차량 탑승자 정하기</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #E0F7FA;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 {
+      color: black;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      font-size: 1.5em;
+    }
+    #form {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      border: 1px solid #29ABE2;
+    }
+    textarea, button {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    textarea {
+      background-color: #f0f8ff;
+      color: #333;
+      border: 1px solid #29ABE2;
+    }
+    button {
+      background-color: #29ABE2;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #2391c4;
+    }
+    .canvas-wrapper {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      max-width: 1400px;
+    }
+    canvas {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      border: 1px solid #29ABE2;
+    }
+    #summary {
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      h1 { font-size: 1.2em; }
+      #form { padding: 10px; }
+      textarea, button { font-size: 12px; padding: 6px; }
+      #summary { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>차량 탑승자 정하기</h1>
+  <div id="form">
+    <textarea id="allPeopleInput" rows="7" oninput="updateSummary()">Bert  
+Bob  
+Chole  
+Charlie  
+Eddy  
+Edan  
+Harry  
+Han  
+Hyde  
+Jack  
+Jackey  
+Jason  
+Jay  
+Junny  
+Kevin  
+Luna  
+Michael  
+Ruke  
+Russell  
+Sub  
+Tony  
+Will  
+Xia</textarea>
+
+    <h3>🚗 운전자 및 탑승 가능 수 입력</h3>
+    <textarea id="driversInput" rows="7" oninput="updateSummary()">Bert,3
+Jason,3
+Bob,3
+Ruke,3
+Charlie,3
+Michael,3
+Jay,3</textarea>
+
+    <div id="summary"></div>
+    <button onclick="startSimulation()">🎮</button>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let cars = [];
+    let passengers = [];
+    let balls = [];
+    let BASE_IMAGE_SIZE = 100;
+    let maxAssignedPerCar = 4;
+    const imageCache = {};
+    const defaultImage = new Image();
+    defaultImage.src = "images/default.png";
+
+    const COLORS = [
+      "#F8BBD0", // 연한 핑크
+      "#B2EBF2", // 연한 시안
+      "#E1BEE7", // 연한 보라
+      "#FFF9C4", // 연한 노랑
+      "#D1C4E9", // 연보라
+      "#B3E5FC", // 연하늘
+      "#C8E6C9", // 연녹색
+      "#FFCCBC"  // 연한 오렌지
+    ];
+    function getColorByName(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return COLORS[Math.abs(hash) % COLORS.length];
+    }
+
+    function resizeCanvas(maxPassengersCount = 4) {
+      const wrapper = document.querySelector(".canvas-wrapper");
+      const width = Math.min(1400, wrapper.clientWidth);
+      canvas.width = width;
+      BASE_IMAGE_SIZE = Math.min(100, canvas.width / 10);
+      const height = (maxPassengersCount+1) * BASE_IMAGE_SIZE + 300;
+      canvas.height = height;
+      canvas.style.height = `${height}px`;
+    }
+
+    window.addEventListener("resize", () => {
+      cars.forEach(car => {
+        if (car.assigned.length > maxAssignedPerCar) maxAssignedPerCar = car.assigned.length;
+      });
+      resizeCanvas(maxAssignedPerCar);
+      updatePositions();
+    });
+
+    async function loadImage(name) {
+      if (imageCache[name]) return imageCache[name];
+      const img = new Image();
+      img.src = `images/${name}.png`;
+      return new Promise((resolve) => {
+        img.onload = () => { imageCache[name] = img; resolve(img); };
+        img.onerror = () => { imageCache[name] = defaultImage; resolve(defaultImage); };
+      });
+    }
+
+    const driverColorMap = {};
+    const driverColors = ["#FFD700", "#87CEFA", "#FFB6C1", "#98FB98", "#FFA07A", "#DA70D6"];
+
+    function getDriverColor(name) {
+      if (!driverColorMap[name]) {
+        const keys = Object.keys(driverColorMap);
+        driverColorMap[name] = driverColors[keys.length % driverColors.length];
+      }
+      return driverColorMap[name];
+    }
+
+    class Ball {
+      constructor(name, x, y, targetX, targetY, image, color) {
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.radius = BASE_IMAGE_SIZE / 2;
+        this.image = image;
+        this.t = 0;
+        this.duration = Math.random() * 200 + 200;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.startAngle = Math.random() * Math.PI * 2;
+        this.scale = 0.5;
+        this.opacity = 0;
+        this.color = color;
+      }
+      update() {
+        if (this.t < this.duration) {
+          const t = this.t / this.duration;
+          const easedT = 1 - Math.pow(1 - t, 4);
+          const angle = this.startAngle + easedT * Math.PI * 2;
+          const spiralRadius = (1 - easedT) * BASE_IMAGE_SIZE;
+          const x = this.x + Math.cos(angle) * spiralRadius + (this.targetX - this.x) * easedT;
+          const y = this.y + Math.sin(angle) * spiralRadius + (this.targetY - this.y) * easedT;
+          this.scale = 0.5 + easedT * 0.5;
+          this.opacity = easedT;
+          this.draw(x, y);
+          this.t++;
+        } else {
+          this.scale = 1;
+          this.opacity = 1;
+          this.draw(this.targetX, this.targetY);
+        }
+      }
+      draw(x, y) {
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        const scaledSize = this.radius * 2 * this.scale;
+        ctx.beginPath();
+        ctx.arc(x, y, this.radius * this.scale, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.closePath();
+        if (this.image) {
+          ctx.drawImage(this.image, x - this.radius * this.scale, y - this.radius * this.scale, scaledSize, scaledSize);
+        }
+        ctx.fillStyle = "#000";
+        ctx.font = `bold ${BASE_IMAGE_SIZE / 8 * this.scale}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(this.name, x, y + this.radius * this.scale + BASE_IMAGE_SIZE / 8 * this.scale);
+        ctx.restore();
+      }
+    }
+
+    function updatePositions() {
+      const spacing = Math.min(BASE_IMAGE_SIZE * 1.6, (canvas.width - BASE_IMAGE_SIZE) / cars.length);
+      const offsetX = (canvas.width - (cars.length - 1) * spacing) / 2;
+      const verticalSpacing = BASE_IMAGE_SIZE + BASE_IMAGE_SIZE / 8 + 10;
+      cars.forEach((car, i) => {
+        car.x = offsetX + i * spacing;
+        car.y = canvas.height - BASE_IMAGE_SIZE * 2;
+      });
+      balls.forEach(ball => {
+        const car = cars.find(c => c.assigned.includes(ball.name));
+        if (car) {
+          const indexInCar = car.assigned.indexOf(ball.name);
+          ball.targetX = car.x;
+          ball.targetY = car.y - 20 - BASE_IMAGE_SIZE - indexInCar * verticalSpacing;
+        }
+      });
+    }
+
+    async function startSimulation() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const allPeopleText = document.getElementById("allPeopleInput").value.trim();
+      const driversText = document.getElementById("driversInput").value.trim();
+      const allPeople = allPeopleText.split("\n").map(p => p.trim()).filter(Boolean);
+      const driverLines = driversText.split("\n").map(l => l.trim()).filter(Boolean);
+      cars = [];
+      passengers = [];
+      balls = [];
+      maxAssignedPerCar = 4;
+      const driverNames = [];
+      for (let i = 0; i < driverLines.length; i++) {
+        const [name, seats] = driverLines[i].split(",");
+        const driverName = name.trim();
+        driverNames.push(driverName);
+        const img = await loadImage(driverName);
+        const color = getDriverColor(driverName);
+        cars.push({ driver: driverName, capacity: parseInt(seats), assigned: [], x: 0, y: 0, image: img, color: color });
+      }
+      passengers = allPeople.filter(name => !driverNames.includes(name));
+      passengers = shuffleArray(passengers);
+      cars = shuffleArray(cars);
+      for (let i = 0; i < passengers.length; i++) {
+        const p = passengers[i];
+        const available = cars.filter(car => car.assigned.length < car.capacity);
+        if (available.length > 0) {
+          const chosen = available.reduce((minCar, currentCar) =>
+            currentCar.assigned.length < minCar.assigned.length ? currentCar : minCar
+          );
+          const indexInCar = chosen.assigned.length;
+          chosen.assigned.push(p);
+          const img = await loadImage(p);
+          balls.push(new Ball(
+            p,
+            BASE_IMAGE_SIZE / 2 + i * BASE_IMAGE_SIZE * 0.3,
+            30,
+            chosen.x,
+            chosen.y - 10 - BASE_IMAGE_SIZE - indexInCar * (BASE_IMAGE_SIZE + BASE_IMAGE_SIZE / 8 + 10),
+            img,
+            chosen.color
+          ));
+        }
+      }
+      cars.forEach(car => {
+        if (car.assigned.length > maxAssignedPerCar) maxAssignedPerCar = car.assigned.length;
+      });
+      resizeCanvas(maxAssignedPerCar);
+      updatePositions();
+    }
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      cars.forEach(car => {
+        const radius = BASE_IMAGE_SIZE / 2;
+        const x = car.x;
+        const y = car.y;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = car.color;
+        ctx.fill();
+        ctx.closePath();
+        if (car.image) ctx.drawImage(car.image, x - radius, y - radius, radius * 2, radius * 2);
+        ctx.fillStyle = "#000";
+        ctx.font = `bold ${BASE_IMAGE_SIZE / 8}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(car.driver, x, y + radius + BASE_IMAGE_SIZE / 8);
+        ctx.fillStyle = "#333";
+        ctx.font = `${BASE_IMAGE_SIZE / 10}px sans-serif`;
+        ctx.fillText(`(${car.assigned.length}/${car.capacity})`, x, y + radius + BASE_IMAGE_SIZE / 4);
+        if (car.assigned.length > 0) {
+          ctx.fillStyle = "#555";
+          ctx.font = `bold ${BASE_IMAGE_SIZE / 10}px sans-serif`;
+          const text = car.assigned.join(", ");
+          ctx.fillText(text, car.x, car.y + radius + BASE_IMAGE_SIZE / 2.5);
+        }
+      });
+
+      balls.forEach(ball => ball.update());
+    }
+
+    function updateSummary() {
+      const allText = document.getElementById("allPeopleInput").value.trim();
+      const driversText = document.getElementById("driversInput").value.trim();
+      const allPeople = allText.split("\n").map(p => p.trim()).filter(Boolean);
+      const driverLines = driversText.split("\n").map(l => l.trim()).filter(Boolean);
+      let totalSeats = 0;
+      const driverCount = driverLines.length;
+      const driverNames = [];
+      driverLines.forEach(line => {
+        const [name, seats] = line.split(",");
+        driverNames.push(name.trim());
+        totalSeats += parseInt(seats || 0);
+      });
+      const passengerCount = allPeople.filter(name => !driverNames.includes(name)).length;
+      document.getElementById("summary").innerText =
+        `총 인원: ${allPeople.length}명 | 운전자: ${driverCount}명 | 탑승자: ${passengerCount}명 | 총 좌석 수: ${totalSeats}석`;
+    }
+
+    updateSummary();
+    animate();
+  </script>
+</body>
+</html>
