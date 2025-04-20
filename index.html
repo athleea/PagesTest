@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>차량 탑승자 정하기</title>
   <style>
-    /* CSS remains unchanged */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: #E0F7FA;
@@ -99,6 +98,8 @@
       textarea,
       button { font-size: 12px; padding: 6px; }
       #summary { font-size: 12px; }
+      .canvas-wrapper { padding: 0; }
+      canvas { max-width: 100%; height: auto; }
     }
   </style>
 </head>
@@ -150,33 +151,24 @@ Harry,3</textarea>
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const COLORS = [
-		"#FFD700", // Gold
-		"#87CEFA", // Sky Blue
-		"#FFB6C1", // Light Pink
-		"#98FB98", // Pale Green
-		"#FFA07A", // Light Salmon
-		"#DA70D6", // Orchid
-		"#FF4500", // Orange Red
-		"#00CED1", // Dark Turquoise
-		"#FF69B4", // Hot Pink
-		"#7FFF00"  // Chartreuse
-	];
-    const DRIVER_COLORS = COLORS
+      "#FFD700", "#87CEFA", "#FFB6C1", "#98FB98", "#FFA07A",
+      "#DA70D6", "#FF4500", "#00CED1", "#FF69B4", "#7FFF00"
+    ];
     
     let cars = [];
-    let balls = [];
+    let people = [];
     let maxAssignedPerCar = 4;
     let BASE_IMAGE_SIZE = 0;
     const imageCache = new Map();
-    const driverColorMap = new Map();
+    const colorMap = new Map();
     const defaultImage = new Image();
     defaultImage.src = "images/default.png";
+    defaultImage.onerror = () => console.error("Failed to load default image: images/default.png");
     const errorLog = document.getElementById("error-log");
 
     // 유틸리티 함수
     const getResponsiveImageSize = () => Math.max(40, Math.min(80, document.querySelector(".canvas-wrapper").clientWidth / 10));
-    const getColorByName = name => COLORS[name.split('').reduce((hash, char) => char.charCodeAt(0) + ((hash << 5) - hash), 0) % COLORS.length];
-    const getDriverColor = name => driverColorMap.get(name) || (driverColorMap.set(name, DRIVER_COLORS[driverColorMap.size % DRIVER_COLORS.length]).get(name));
+    const getColorByName = name => colorMap.get(name) || (colorMap.set(name, COLORS[colorMap.size % COLORS.length]).get(name));
     const shuffleArray = array => array.sort(() => Math.random() - 0.5);
 
     const logError = message => {
@@ -187,94 +179,112 @@ Harry,3</textarea>
     const loadImage = name => imageCache.get(name) || (imageCache.set(name, new Promise(resolve => {
       const img = new Image();
       img.src = `images/${name}.png`;
-      img.onload = () => resolve(img);
+      img.onload = () => {
+        console.log(`Loaded image: images/${name}.png`);
+        resolve(img);
+      };
       img.onerror = () => {
-        logError(`Failed to load image: images/${name}.png`);
+        logError(`Failed to load image: images/${name}.png, using default image`);
         resolve(defaultImage);
       };
     })), imageCache.get(name));
 
     const resizeCanvas = () => {
       const wrapper = document.querySelector(".canvas-wrapper");
-      canvas.width = Math.min(1400, wrapper.clientWidth);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.min(1400, wrapper.clientWidth) * dpr;
       BASE_IMAGE_SIZE = getResponsiveImageSize();
       canvas.height = (maxAssignedPerCar + 1) * BASE_IMAGE_SIZE + 300;
-      canvas.style.height = `${canvas.height}px`;
+      if (window.innerWidth <= 600) {
+        canvas.height = (maxAssignedPerCar + 1) * BASE_IMAGE_SIZE + 200;
+      }
+      canvas.height *= dpr;
+      canvas.style.width = `${canvas.width / dpr}px`;
+      canvas.style.height = `${canvas.height / dpr}px`;
+      ctx.scale(dpr, dpr);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
     };
 
-    class Ball {
-		constructor(name, x, y, targetX, targetY, image, color) {
-			this.name = name;
-			this.x = x;
-			this.y = y;
-			this.targetX = targetX;
-			this.targetY = targetY;
-			this.image = image;
-			this.color = color;
-			this.radius = BASE_IMAGE_SIZE / 2;
-			this.t = 0;
-			this.duration = 200 + Math.random() * 200;
-			this.startAngle = Math.random() * Math.PI * 2;
-			this.scale = 0.5;
-			this.opacity = 0;
-		}
+    class Person {
+      constructor(name, x, y, targetX, targetY, image, color, isDriver = false, car = null) {
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.image = image;
+        this.color = color;
+        this.radius = BASE_IMAGE_SIZE / 2;
+        this.t = 0;
+        this.duration = 200 + Math.random() * 200;
+        this.startAngle = Math.random() * Math.PI * 2;
+        this.scale = 0.5;
+        this.opacity = 0;
+        this.isDriver = isDriver;
+        this.car = car;       
+      }
 
-		update() {
-			if (this.t < this.duration) {
-			const t = this.t++ / this.duration;
-			const easedT = 1 - (1 - t) ** 4;
-			const spiralRadius = (1 - easedT) * BASE_IMAGE_SIZE;
-			this.scale = 0.5 + easedT * 0.5;
-			this.opacity = easedT;
-			this.draw(
-				this.x + Math.cos(this.startAngle + easedT * Math.PI * 2) * spiralRadius + (this.targetX - this.x) * easedT,
-				this.y + Math.sin(this.startAngle + easedT * Math.PI * 2) * spiralRadius + (this.targetY - this.y) * easedT
-			);
-			} else {
-			this.scale = this.opacity = 1;
-			this.draw(this.targetX, this.targetY);
-			}
-		}
+      update() {
+        if (this.t < this.duration) {
+          const t = this.t++ / this.duration;
+          const easedT = 1 - (1 - t) ** 4;
+          const spiralRadius = (1 - easedT) * BASE_IMAGE_SIZE;
+          this.scale = 0.5 + easedT * 0.5;
+          this.opacity = easedT;
+          this.draw(
+            this.x + Math.cos(this.startAngle + easedT * Math.PI * 2) * spiralRadius + (this.targetX - this.x) * easedT,
+            this.y + Math.sin(this.startAngle + easedT * Math.PI * 2) * spiralRadius + (this.targetY - this.y) * easedT
+          );
+        } else {
+          this.scale = this.opacity = 1;
+          this.draw(this.targetX, this.targetY);
+        }
+      }
 
-		draw(x, y) {
-			ctx.save();
-			ctx.globalAlpha = this.opacity;
-			const scaledSize = this.radius * 2 * this.scale;
-			ctx.beginPath();
-			ctx.arc(x, y, this.radius * this.scale, 0, Math.PI * 2);
-			ctx.fillStyle = this.color;
-			ctx.fill();
-			if (this.image) ctx.drawImage(this.image, x - this.radius * this.scale, y - this.radius * this.scale, scaledSize, scaledSize);
-			ctx.fillStyle = "#000";
-			ctx.font = `bold ${BASE_IMAGE_SIZE / 7 * this.scale}px sans-serif`; // 텍스트 크기 약간 확대
-			ctx.textAlign = "center";
-			ctx.fillText(this.name, x, y + this.radius * this.scale + BASE_IMAGE_SIZE / 7 * this.scale);
-			ctx.restore();
-		}
+      draw(x, y) {
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        const scaledSize = this.radius * 2 * this.scale;
+        ctx.beginPath();
+        ctx.arc(x, y, this.radius * this.scale, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        if (this.image && this.image.complete) {
+          ctx.drawImage(this.image, x - this.radius * this.scale, y - this.radius * this.scale, scaledSize, scaledSize);
+        } else {
+          console.warn(`Image not ready for ${this.name}`);
+        }
+        ctx.fillStyle = "#000";
+        ctx.font = `bold ${Math.round(BASE_IMAGE_SIZE / 6 * this.scale)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(this.name, x, y + this.radius * this.scale + BASE_IMAGE_SIZE / 6 * this.scale);
+        ctx.restore();
+      }
     }
 
     const updatePositions = () => {
-		const spacing = Math.min(BASE_IMAGE_SIZE * 2, (canvas.width - BASE_IMAGE_SIZE) / cars.length); // 여백 약간 축소
-		const offsetX = (canvas.width - (cars.length - 1) * spacing) / 2;
-		const verticalSpacing = BASE_IMAGE_SIZE * 1.1 + 5; // 상수 10 → 5로 축소
+      const dpr = window.devicePixelRatio || 1;
+      const logicalWidth = canvas.width / dpr;
+      const logicalHeight = canvas.height / dpr;
+      const spacing = Math.min(BASE_IMAGE_SIZE * 2, (logicalWidth - BASE_IMAGE_SIZE) / cars.length);
+      const offsetX = (logicalWidth - (cars.length - 1) * spacing) / 2;
+      const verticalSpacing = BASE_IMAGE_SIZE * 1.1 + 20;
 
-		cars.forEach((car, i) => {
-			car.x = offsetX + i * spacing;
-			car.y = canvas.height - BASE_IMAGE_SIZE * 1.5; // 하단 여백 축소
-		});
-
-		balls.forEach(ball => {
-			const car = cars.find(c => c.assigned.includes(ball.name));
-			if (car) {
-			const index = car.assigned.indexOf(ball.name);
-			ball.targetX = car.x;
-			ball.targetY = car.y - 20 - BASE_IMAGE_SIZE - index * verticalSpacing; // 상단 여백 축소
-			}
-	});
-	};
+      cars.forEach((car, i) => {
+        car.x = offsetX + i * spacing;
+        car.y = logicalHeight - BASE_IMAGE_SIZE * 1.5;
+        car.driver.targetX = car.x;
+        car.driver.targetY = car.y;
+        car.assigned.forEach((passenger, index) => {
+          passenger.targetX = car.x;
+          passenger.targetY = car.y - 20 - BASE_IMAGE_SIZE - index * verticalSpacing;
+        });
+      });
+    };
 
     const startSimulation = async () => {
-      errorLog.textContent = ''; // Clear previous errors
+      errorLog.textContent = '';
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const allPeople = document.getElementById("allPeopleInput").value.trim().split("\n").map(p => p.trim()).filter(Boolean);
       const driverLines = document.getElementById("driversInput").value.trim().split("\n").map(l => l.trim()).filter(Boolean);
@@ -284,52 +294,61 @@ Harry,3</textarea>
         return;
       }
 
-      cars = await Promise.all(driverLines.map(async line => {
+      people = [];
+      cars = [];
+      maxAssignedPerCar = 4;
+
+      for (const line of driverLines) {
         const [name, seats] = line.split(",");
-        if (!name || !seats || isNaN(seats)) {
+        if (!name || !seats || isNaN(seats) || parseInt(seats) <= 0) {
           logError(`Invalid driver input: ${line}`);
-          return null;
+          continue;
         }
-        return {
-          driver: name.trim(),
+        const driver = new Person(
+          name.trim(),
+          0, 0, 0, 0,
+          await loadImage(name.trim()),
+          getColorByName(name.trim()),
+          true
+        );
+        people.push(driver);
+        cars.push({
+          driver,
           capacity: parseInt(seats),
           assigned: [],
           x: 0,
-          y: 0,
-          image: await loadImage(name.trim()),
-          color: getDriverColor(name.trim())
-        };
-      })).then(results => results.filter(Boolean));
+          y: 0
+        });
+      }
 
       if (!cars.length) {
         logError("Error: No valid drivers found.");
         return;
       }
 
-      const driverNames = cars.map(car => car.driver);
-      let passengers = shuffleArray(allPeople.filter(name => !driverNames.includes(name)));
-      cars = shuffleArray(cars);
-      maxAssignedPerCar = 4;
-      balls = [];
+      const driverNames = cars.map(car => car.driver.name);
+      let passengers = shuffleArray(allPeople.filter(name => !driverNames.includes(name)));     
 
-      for (const [i, passenger] of passengers.entries()) {
+      for (const [i, passengerName] of passengers.entries()) {
         const available = cars.filter(car => car.assigned.length < car.capacity);
         if (!available.length) {
-          logError(`No available seats for passenger: ${passenger}`);
+          logError(`No available seats for passenger: ${passengerName}`);
           continue;
         }
         const car = available.reduce((min, curr) => curr.assigned.length < min.assigned.length ? curr : min);
-        car.assigned.push(passenger);
-        maxAssignedPerCar = Math.max(maxAssignedPerCar, car.assigned.length);
-        balls.push(new Ball(
-          passenger,
+        const passenger = new Person(
+          passengerName,
           BASE_IMAGE_SIZE / 2 + i * BASE_IMAGE_SIZE * 0.3,
           30,
-          car.x,
-          car.y - 30 - BASE_IMAGE_SIZE - car.assigned.length * (BASE_IMAGE_SIZE * 1.125 + 10),
-          await loadImage(passenger),
-          car.color
-        ));
+          0, 0,
+          await loadImage(passengerName),
+          car.driver.color,
+          false,
+          car
+        );
+        people.push(passenger);
+        car.assigned.push(passenger);
+        maxAssignedPerCar = Math.max(maxAssignedPerCar, car.assigned.length);
       }
 
       resizeCanvas();
@@ -338,49 +357,73 @@ Harry,3</textarea>
 
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      cars.forEach(car => {
-        const radius = BASE_IMAGE_SIZE / 2;
-        ctx.beginPath();
-        ctx.arc(car.x, car.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = car.color;
-        ctx.fill();
-        if (car.image) ctx.drawImage(car.image, car.x - radius, car.y - radius, radius * 2, radius * 2);
-        ctx.fillStyle = "#000";
-        ctx.font = `bold ${BASE_IMAGE_SIZE / 8}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.fillText(car.driver, car.x, car.y + radius + BASE_IMAGE_SIZE / 8);
-        ctx.fillStyle = "#333";
-        ctx.font = `${BASE_IMAGE_SIZE / 10}px sans-serif`;
-        ctx.fillText(`(${car.assigned.length}/${car.capacity})`, car.x, car.y + radius + BASE_IMAGE_SIZE / 4);
-        if (car.assigned.length) {
-          ctx.fillStyle = "#555";
-          ctx.font = `bold ${BASE_IMAGE_SIZE / 10}px sans-serif`;
-          ctx.fillText(car.assigned.join(", "), car.x, car.y + radius + BASE_IMAGE_SIZE / 2.5);
+      people.forEach(person => {
+        person.update();
+        if (person.isDriver) {
+          const car = cars.find(c => c.driver === person);
+          if (car) {
+            ctx.fillStyle = "#333";
+            ctx.font = `${Math.round(BASE_IMAGE_SIZE / 10)}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.fillText(`(${car.assigned.length}/${car.capacity})`, person.targetX, person.targetY + person.radius + BASE_IMAGE_SIZE / 4);
+            if (car.assigned.length) {
+              ctx.fillStyle = "#555";
+              ctx.font = `bold ${Math.round(BASE_IMAGE_SIZE / 10)}px sans-serif`;
+              ctx.fillText(car.assigned.map(p => p.name).join(", "), person.targetX, person.targetY + person.radius + BASE_IMAGE_SIZE / 2.5);
+            }
+          }
         }
       });
-
-      balls.forEach(ball => ball.update());
       requestAnimationFrame(animate);
     };
 
     const updateSummary = () => {
-      const allPeople = document.getElementById("allPeopleInput").value.trim().split("\n").map(p => p.trim()).filter(Boolean);
-      const driverLines = document.getElementById("driversInput").value.trim().split("\n").map(l => l.trim()).filter(Boolean);
-      const driverNames = driverLines.map(([name]) => name?.trim()).filter(Boolean);
-      const totalSeats = driverLines.reduce((sum, [, seats]) => sum + (parseInt(seats) || 0), 0);
-      const passengerCount = allPeople.length - driverNames.length;
+      const errorLog = document.getElementById("error-log");
+      errorLog.textContent = ''; // 에러 로그 초기화
+      try {
+        const allPeople = document.getElementById("allPeopleInput").value.trim().split("\n").map(p => p.trim()).filter(Boolean);
+        const driverLines = document.getElementById("driversInput").value.trim().split("\n").map(l => l.trim()).filter(Boolean);
 
-      document.getElementById("summary").textContent =
-        `총 인원: ${allPeople.length}명 | 운전자: ${driverNames.length}명 | 탑승자: ${passengerCount}명 | 총 좌석 수: ${totalSeats}석`;
+        if (!allPeople.length || !driverLines.length) {
+          logError("Error: No people or drivers provided in summary.");
+          document.getElementById("summary").textContent = "입력 데이터를 확인해주세요.";
+          return;
+        }
+
+        const driverNames = driverLines
+          .map(line => {
+            const [name] = line.split(",");
+            return name?.trim();
+          })
+          .filter(name => name); // 빈 이름 제거
+
+        const totalSeats = driverLines.reduce((sum, line) => {
+          const [, seats] = line.split(",");
+          const seatCount = parseInt(seats);
+          return sum + (isNaN(seatCount) ? 0 : seatCount);
+        }, 0);
+
+        const passengerCount = allPeople.length - driverNames.length;
+
+        document.getElementById("summary").textContent =
+          `총 인원: ${allPeople.length}명 | 운전자: ${driverNames.length}명 | 탑승자: ${passengerCount}명 | 총 좌석 수: ${totalSeats}석`;
+
+        console.log(`Summary updated: total=${allPeople.length}, drivers=${driverNames.length}, passengers=${passengerCount}, seats=${totalSeats}`);
+      } catch (e) {
+        logError(`Error in updateSummary: ${e.message}`);
+        document.getElementById("summary").textContent = "요약 정보를 계산하는 중 오류가 발생했습니다.";
+      }
     };
 
     window.addEventListener("load", () => {
+      console.log("Window loaded, initializing canvas");
       resizeCanvas();
       updateSummary();
       animate();
     });
 
     window.addEventListener("resize", () => {
+      console.log("Window resized, updating canvas");
       resizeCanvas();
       updatePositions();
     });
