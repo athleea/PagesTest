@@ -11,8 +11,14 @@
             padding: 0;
             box-sizing: border-box;
         }
-        body {
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: #f5f9fc;
             font-family: 'Arial', sans-serif;
+        }
+        body {
             line-height: 1.6;
             padding: 20px;
             max-width: 1200px;
@@ -32,18 +38,30 @@
             box-shadow: 0 4px 15px rgba(41,171,226,0.1);
             border: 1px solid rgba(41,171,226,0.1);
         }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+        .header img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
         h1 {
-            background: linear-gradient(45deg, #FBB315, #29ABE2);
+            background: #29ABE2;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-align: center;
-            margin-bottom: 30px;
+            margin: 0;
+            font-size: 2em;
         }
 
         h2 {
-
-            background: linear-gradient(45deg, #FBB315, #29ABE2);
+            background: #FBB315;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -69,7 +87,7 @@
             justify-content: space-between;
             gap: 8px;
             box-shadow: 0 4px 12px rgba(41,171,226,0.15);
-            border: 2px solid #FBB315;
+            border: 2px solid #29ABE2;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             overflow: hidden;
             cursor: pointer;
@@ -146,7 +164,7 @@
             flex: 1;
         }
         button {
-            background: linear-gradient(45deg, #FBB315, #29ABE2);
+            background: #29ABE2;
             color: white;
             border: none;
             border-radius: 8px;
@@ -217,7 +235,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>차량 선택 시스템</h1>
+        <div class="header">
+            <img src="images/logo.png" alt="로고">
+            <h1>차량 선택 시스템</h1>
+        </div>
         
         <div class="section">
             <h2>멤버 관리</h2>
@@ -241,7 +262,6 @@
 
         <div class="section">
             <button onclick="simulate()" style="width: 100%; padding: 15px; font-size: 1.2em;">시뮬레이션 시작</button>
-            <div id="simulationResult" class="result"></div>
         </div>
     </div>
 
