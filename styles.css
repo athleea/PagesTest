@@ -1,0 +1,362 @@
+/* 스타일 정의 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: #f5f9fc;
+    font-family: 'Arial', sans-serif;
+}
+body {
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #fff 0%, #f0f7fa 100%);
+    min-height: 100vh;
+}
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.sections-row {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.section {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(41,171,226,0.1);
+    border: 1px solid rgba(41,171,226,0.1);
+}
+.section.main-section {
+    flex: 1;
+    min-width: 300px;
+}
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+    padding: 20px;
+}
+.header img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+h1 {
+    background: #29ABE2;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    font-size: 2em;
+}
+
+h2 {
+    background: #FBB315;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.member-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.member-item {
+    width: 120px;
+    height: 120px;
+    background: white;
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(41,171,226,0.15);
+    border: 2px solid #29ABE2;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+}
+.member-item.selected {
+    background-color: #FFF9C4;
+    border-color: #FBB315;
+}
+.car-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    color: #29ABE2;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+    z-index: 2;
+}
+.member-item:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 20px rgba(251,179,21,0.2);
+    border-color: #29ABE2;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+.member-item img {
+    width: 80%;
+    height: auto;
+    object-fit: contain;
+}
+.delete-btn {
+    background: #ef5350;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 10px;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    opacity: 0.7;
+    z-index: 5;
+    padding: 0;
+    line-height: 1;
+}
+.delete-btn:hover {
+    background: #e53935;
+    transform: scale(1.1);
+    opacity: 1;
+}
+.input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+input[type="text"] {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input[type="text"]:focus {
+    outline: none;
+    border-color: #29ABE2;
+    box-shadow: 0 0 0 3px rgba(41,171,226,0.1);
+}
+.btn-primary {
+    background: linear-gradient(45deg, #FBB315, #29ABE2);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(41,171,226,0.2);
+}
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(41,171,226,0.3);
+}
+input[type="text"],
+input[type="number"],
+select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    flex: 1;
+}
+button {
+    background: #29ABE2;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(41,171,226,0.2);
+}
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(41,171,226,0.3);
+}
+.result {
+    margin-top: 20px;
+    padding: 20px;
+    background: rgba(41,171,226,0.1);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border: 1px solid rgba(41,171,226,0.2);
+}
+#carList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+}
+.car-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(41,171,226,0.15);
+    border: 2px solid #29ABE2;
+    transition: all 0.3s ease;
+    min-width: 130px;
+}
+.car-group:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(41,171,226,0.2);
+}
+.car-group span {
+    margin: 8px 0;
+    font-weight: 500;
+    color: #333;
+}
+.car-group h3 {
+    margin-bottom: 10px;
+    color: #29ABE2;
+    font-weight: 600;
+}
+.person-icons {
+    display: flex;
+    justify-content: center;
+    margin: 5px 0 10px;
+    flex-wrap: wrap;
+    max-width: 120px;
+}
+.person-icon {
+    width: 20px;
+    height: 20px;
+    margin: 0 2px;
+    color: #FBB315;
+}
+.passenger-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.passenger-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.passenger-item.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+.car-add-form {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 12px;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.car-add-form.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.car-add-form input {
+    width: 70%;
+    text-align: center;
+    font-size: 14px;
+}
+.car-add-form button {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+.person-selector {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+.person-selector span {
+    font-size: 14px;
+    font-weight: bold;
+    width: 20px;
+    text-align: center;
+}
+.person-selector button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    border-radius: 50%;
+}
+.car-delete-btn {
+    background: #ef5350;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: auto;
+    margin-top: 5px;
+}
+.car-delete-btn:hover {
+    background: #e53935;
+    transform: scale(1.05);
+}
+@media (max-width: 768px) {
+    .input-group {
+        flex-direction: column;
+    }
+    .member-list {
+        justify-content: center;
+    }
+    .sections-row {
+        flex-direction: column;
+    }
+}
